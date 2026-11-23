@@ -79,6 +79,29 @@ body{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-selec
 #hint{position:fixed;z-index:3;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);text-align:center;pointer-events:none;
   font-family:var(--hand);font-size:21px;color:var(--ink-soft);opacity:0;transition:opacity 1.2s ease}
 #hint.show{opacity:1}
+[hidden]{display:none!important}
+.pill{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+  font-family:var(--hand);font-size:22px;font-weight:700;color:#fff;white-space:nowrap;padding:7px 22px;border-radius:999px;
+  border:1px solid rgba(255,190,210,.5);background:rgba(194,29,74,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  cursor:pointer;opacity:0;pointer-events:none;transition:opacity .8s ease;box-shadow:0 0 22px rgba(255,90,140,.35)}
+.pill.show{opacity:1;pointer-events:auto}
+.pill:focus-visible{outline:2px solid var(--rose);outline-offset:3px}
+#album{position:fixed;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:rgba(8,6,22,.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);touch-action:pan-y;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:calc(env(safe-area-inset-top,0px) + 60px) calc(env(safe-area-inset-bottom,0px) + 20px);animation:fadeIn .35s ease}
+#a-card{margin:0;background:#fffaf6;padding:12px 12px 0;border-radius:4px;box-shadow:0 22px 50px rgba(0,0,0,.55);
+  transform:rotate(var(--tilt,-2deg));max-width:100%}
+#a-card.swap{animation:swapIn .45s ease}
+#a-img{display:block;width:min(76vw,340px,calc((100vh - 280px) * 0.8));max-width:100%;aspect-ratio:4/5;object-fit:cover;background:#f2c9d3}
+#a-cap{font-family:var(--hand);font-size:clamp(24px,6.5vw,30px);font-weight:700;color:#8e1035;text-align:center;padding:8px 4px 12px;min-height:1.3em}
+.a-nav{display:flex;align-items:center;gap:24px;font-family:var(--hand);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+.a-btn{width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,190,210,.35);background:rgba(30,16,48,.7);color:var(--ink);
+  font-size:28px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0}
+.a-btn:focus-visible{outline:2px solid var(--rose);outline-offset:3px}
+#a-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:max(14px,env(safe-area-inset-right,0px))}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes swapIn{from{opacity:0;transform:rotate(var(--tilt,-2deg)) translateY(12px) scale(.96)}to{opacity:1;transform:rotate(var(--tilt,-2deg))}}
 @media (prefers-reduced-motion: reduce){#env,.i-hint{animation:none}}
 </style>
 
@@ -98,7 +121,19 @@ body{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-selec
 </div>
 
 <audio id="song" src="song.mp3" preload="auto" loop playsinline></audio>
-<p id="hint">tap anywhere ♡</p>
+<button id="photosBtn" class="pill" type="button">your photos ♡</button>
+<div id="album" role="dialog" aria-modal="true" aria-label="Photos of Nica" hidden>
+  <button id="a-close" class="a-btn" type="button" aria-label="Close photos">×</button>
+  <figure id="a-card">
+    <img id="a-img" alt="A photo of Nica">
+    <figcaption id="a-cap"></figcaption>
+  </figure>
+  <div class="a-nav">
+    <button id="a-prev" class="a-btn" type="button" aria-label="Previous photo">‹</button>
+    <span id="a-count">1 / 15</span>
+    <button id="a-next" class="a-btn" type="button" aria-label="Next photo">›</button>
+  </div>
+</div>
 <button id="replay" class="ctl" type="button" aria-label="Watch it bloom again">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
 </button>
@@ -125,7 +160,7 @@ const intro = document.getElementById("intro");
 const env = document.getElementById("env");
 const muteBtn = document.getElementById("mute");
 const replayBtn = document.getElementById("replay");
-const hintEl = document.getElementById("hint");
+const hintEl = document.getElementById("photosBtn");
 const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const TAU = Math.PI * 2;
@@ -223,6 +258,81 @@ const isFiller = f => f.kind === "lav" || f.kind === "breath";
 const drawOrder = flowers.slice().sort((a, b) => (isFiller(a) ? 0 : 1) - (isFiller(b) ? 0 : 1) || a.y - b.y);
 const sparkles = Array.from({length:18}, () => { const a = R() * TAU, k = Math.sqrt(R()); return { x:200 + Math.cos(a) * 185 * k, y:300 + Math.sin(a) * 200 * k, s:2 + R() * 3.5, ph:R() * TAU, sp:1.2 + R() * 1.8 }; });
 
+/* ---------- her photos: polaroids on sticks, tucked into the bouquet ---------- */
+const PHOTO_COUNT = 15;
+const CAPTIONS = [
+  "my favorite view",
+  "how are you this pretty?",
+  "the prettiest girl i know",
+  "this smile >>>",
+  "lucky me ♡",
+  "can't stop looking",
+  "10/10, no notes",
+  "mine ♡",
+  "you make every day better",
+  "obsessed, honestly",
+  "my favorite notification",
+  "stay this cute pls",
+  "thinking about you, always",
+  "those glasses >>>",
+  "caught you looking ♡"
+];
+const photos = Array.from({length:PHOTO_COUNT}, (_, i) => { const im = new Image(); im.decoding = "async"; im.src = "photos/" + String(i + 1).padStart(2, "0") + ".jpg"; return im; });
+const CARD_W = 80, CARD_H = 98, PH = 68;
+const cards = [
+  { x:200, y:92,  rot:0.03 },
+  { x:110, y:122, rot:-0.2 },
+  { x:290, y:118, rot:0.18 },
+  { x:56,  y:256, rot:-0.24 },
+  { x:344, y:250, rot:0.22 }
+].map((c, i) => Object.assign(c, { ph:R() * TAU, delay:5.2 + i * 0.3, sx:200 + (c.x - 200) * 0.12, cx:c.x, cy:c.y, s:0 }));
+let photoCursor = 0;
+function resetCards(){
+  cards.forEach((c, i) => { c.idx = i; c.pending = i; c.flipStart = -1; c.nextFlip = 10 + i * 1.3; c.s = 0; });
+  photoCursor = cards.length;
+}
+resetCards();
+function roundRect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function drawCards(t, tn){
+  for (const c of cards) {
+    const e = t - c.delay;
+    if (e <= 0) continue;
+    if (t >= c.nextFlip) { c.flipStart = t; c.nextFlip = t + 6.5; c.pending = photoCursor % PHOTO_COUNT; photoCursor++; }
+    const g = clamp(e / 0.9), s = easeOutBack(clamp((e - 0.5) / 0.8)), sw = reduce ? 0 : 2;
+    const hx = c.x + Math.sin(tn * 0.7 + c.ph) * sw, hy = c.y + Math.cos(tn * 0.55 + c.ph) * sw * 0.5;
+    c.cx = hx; c.cy = hy; c.s = s;
+    const by = hy + CARD_H * 0.35;
+    ctx.strokeStyle = "#b8916b"; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(c.sx, 612); ctx.lineTo(c.sx + (hx - c.sx) * g, 612 + (by - 612) * g); ctx.stroke();
+    if (s <= 0) continue;
+    let fx = 1;
+    if (c.flipStart >= 0) {
+      const p = (t - c.flipStart) / 0.7;
+      if (p >= 1) c.flipStart = -1;
+      else { fx = Math.max(0.02, Math.abs(Math.cos(p * Math.PI))); if (p >= 0.5) c.idx = c.pending; }
+    }
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(c.rot + Math.sin(tn * 0.7 + c.ph) * 0.02); ctx.scale(s * fx, s);
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(-CARD_W / 2 + 3, -CARD_H / 2 + 4, CARD_W, CARD_H, 3); ctx.fill();
+    ctx.fillStyle = "#fffaf6"; roundRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 3); ctx.fill();
+    const im = photos[c.idx], px = -PH / 2, py = -CARD_H / 2 + 6;
+    if (im.complete && im.naturalWidth) ctx.drawImage(im, 0, im.naturalHeight * 0.04, im.naturalWidth, im.naturalWidth, px, py, PH, PH);
+    else { ctx.fillStyle = "#f2c9d3"; ctx.fillRect(px, py, PH, PH); }
+    ctx.save(); ctx.translate(CARD_W / 2 - 13, CARD_H / 2 - 12); ctx.fillStyle = "#e0436a"; heartPath(4.5); ctx.fill(); ctx.restore();
+    ctx.restore();
+  }
+}
+function cardAt(x, y){
+  const lx = (x - OX) / S, ly = (y - OY) / S;
+  for (let k = cards.length - 1; k >= 0; k--) {
+    const c = cards[k];
+    if (c.s < 0.5) continue;
+    const dx = lx - c.cx, dy = ly - c.cy, a = -c.rot;
+    const rx = dx * Math.cos(a) - dy * Math.sin(a), ry = dx * Math.sin(a) + dy * Math.cos(a);
+    if (Math.abs(rx) < CARD_W / 2 + 4 && Math.abs(ry) < CARD_H / 2 + 4) return c;
+  }
+  return null;
+}
+
 /* ---------- canvas sizing ---------- */
 let W = 0, H = 0, dpr = 1, S = 1, OX = 0, OY = 0;
 let bg = null, stars = [];
@@ -235,9 +345,9 @@ function layout(){
   const top = msgEl.getBoundingClientRect().bottom + 8;
   const bottomPad = 64;
   const availH = Math.max(200, H - top - bottomPad);
-  S = Math.max(0.3, Math.min(W / 400, availH / 610));
+  S = Math.max(0.3, Math.min(W / 400, availH / 665));
   OX = (W - 400 * S) / 2;
-  OY = top - 100 * S + Math.max(0, availH - 610 * S) * 0.45;
+  OY = top - 45 * S + Math.max(0, availH - 665 * S) * 0.45;
 
   bg = document.createElement("canvas");
   bg.width = cv.width; bg.height = cv.height;
@@ -472,6 +582,7 @@ function drawBouquet(t, tn){
   ctx.fillStyle = glow; ctx.fillRect(-80, 20, 560, 640);
 
   ctx.globalAlpha = paperA; drawBackPaper(); ctx.globalAlpha = 1;
+  drawCards(t, tn);
   for (const f of flowers) geom(f, tn);
   const st = new Map();
   for (const f of drawOrder) {
@@ -592,12 +703,46 @@ env.addEventListener("click", () => {
 muteBtn.addEventListener("click", e => { e.stopPropagation(); setMuted(!muted); });
 replayBtn.addEventListener("click", e => {
   e.stopPropagation();
-  T0 = performance.now() / 1000; revealed = -1; uiShown = false;
+  T0 = performance.now() / 1000; revealed = -1; uiShown = false; resetCards();
   try { song.currentTime = 0; if (!muted) { const p = song.play(); playing = true; if (p && p.catch) p.catch(() => {}); } } catch (err) {}
   replayBtn.classList.remove("show"); hintEl.classList.remove("show");
 });
+/* ---------- photo album ---------- */
+const album = document.getElementById("album"), aCard = document.getElementById("a-card"), aImg = document.getElementById("a-img");
+const aCap = document.getElementById("a-cap"), aCount = document.getElementById("a-count"), aNext = document.getElementById("a-next");
+let aIdx = 0, swipeX = null, lastFocus = null;
+function showPhoto(i){
+  aIdx = (i + PHOTO_COUNT) % PHOTO_COUNT;
+  aImg.src = photos[aIdx].src;
+  aCap.textContent = CAPTIONS[aIdx];
+  aCount.textContent = (aIdx + 1) + " / " + PHOTO_COUNT;
+  aCard.style.setProperty("--tilt", ((aIdx % 2 ? 1 : -1) * (1 + aIdx % 3)) + "deg");
+  aCard.classList.remove("swap"); void aCard.offsetWidth; aCard.classList.add("swap");
+}
+function openAlbum(i){ lastFocus = document.activeElement; showPhoto(i); album.hidden = false; aNext.focus(); }
+function closeAlbum(){ album.hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.getElementById("a-close").addEventListener("click", closeAlbum);
+document.getElementById("a-prev").addEventListener("click", () => showPhoto(aIdx - 1));
+aNext.addEventListener("click", () => showPhoto(aIdx + 1));
+hintEl.addEventListener("click", e => { e.stopPropagation(); openAlbum(0); });
+album.addEventListener("click", e => { if (e.target === album) closeAlbum(); });
+album.addEventListener("pointerdown", e => { swipeX = e.target.closest("button") ? null : e.clientX; });
+album.addEventListener("pointerup", e => {
+  if (swipeX === null) return;
+  const dx = e.clientX - swipeX; swipeX = null;
+  if (Math.abs(dx) > 40) showPhoto(aIdx + (dx < 0 ? 1 : -1));
+});
+document.addEventListener("keydown", e => {
+  if (album.hidden) return;
+  if (e.key === "Escape") closeAlbum();
+  else if (e.key === "ArrowRight") showPhoto(aIdx + 1);
+  else if (e.key === "ArrowLeft") showPhoto(aIdx - 1);
+});
+
 cv.addEventListener("pointerdown", e => {
   if (!started) return;
+  const hit = cardAt(e.clientX, e.clientY);
+  if (hit) { openAlbum(hit.idx); return; }
   const n = 12;
   for (let i = 0; i < n; i++) {
     const a = i / n * TAU + Math.random() * 0.4, sp = 70 + Math.random() * 90;
@@ -623,7 +768,6 @@ function frame(ms){
       spawnHeart(OX + lx * S, OY + ly * S, 0, -30 - Math.random() * 25, 4 + Math.random() * 5, 3.5 + Math.random() * 2, true);
     }
     if (t > 8.5 && !uiShown) { uiShown = true; hintEl.classList.add("show"); replayBtn.classList.add("show"); }
-    if (t > 15 && hintEl.classList.contains("show")) hintEl.classList.remove("show");
   }
   drawFireflies(tn, dt);
   drawPetals(tn, dt);
