@@ -97,6 +97,7 @@ body{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-selec
   <p class="i-hint">tap the envelope</p>
 </div>
 
+<audio id="song" src="song.mp3" preload="auto" loop playsinline></audio>
 <p id="hint">tap anywhere ♡</p>
 <button id="replay" class="ctl" type="button" aria-label="Watch it bloom again">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
@@ -547,69 +548,30 @@ function drawHearts(dt){
   ctx.globalAlpha = 1;
 }
 
-/* ---------- music box ---------- */
-let actx = null, master = null, bus = null, muted = false, pumpTimer = 0;
-const EIGHTH = 0.32, LOOP = 48;
-const MEL = [[76,2],[79,2],[84,2],[83,3],[81,1],[79,2],[81,2],[77,2],[81,2],[79,6],
-             [76,2],[79,2],[84,2],[86,3],[84,1],[83,2],[81,2],[83,2],[86,2],[84,6]];
-const BASS = [48,43,41,43,48,43,43,48];
-const events = [];
-{ let p = 0; for (const [m, d] of MEL) { events.push({ t:p, m, d, v:0.2 }); p += d; }
-  BASS.forEach((m, i) => [0, 7, 12].forEach((o, k) => events.push({ t:i * 6 + k * 2, m:m + o, d:2, v:0.07 }))); }
-events.sort((a, b) => a.t - b.t);
-let ei = 0, loopStart = 0;
-const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-function tine(f, t, dur, v){
-  const o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), g2 = actx.createGain();
-  o.type = "sine"; o.frequency.value = f; o2.type = "sine"; o2.frequency.value = f * 4.2;
-  const end = t + Math.max(0.7, dur * 2.4);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, end);
-  g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(v * 0.22, t + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-  o.connect(g); o2.connect(g2); g.connect(bus); g2.connect(bus);
-  o.start(t); o2.start(t); o.stop(end + 0.05); o2.stop(t + 0.35);
-}
-function pump(){
-  if (!actx || actx.state !== "running") return;
-  const ahead = actx.currentTime + 0.6;
-  for (;;) {
-    const e = events[ei], when = loopStart + e.t * EIGHTH;
-    if (when > ahead) break;
-    if (when > actx.currentTime - 0.05) tine(mtof(e.m), Math.max(when, actx.currentTime), e.d * EIGHTH, e.v);
-    if (++ei >= events.length) { ei = 0; loopStart += LOOP * EIGHTH; }
-  }
-}
+/* ---------- her song ---------- */
+const song = document.getElementById("song");
+let muted = false, playing = false;
 function startAudio(){
   try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    actx = new AC();
-    master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
-    master.gain.exponentialRampToValueAtTime(0.6, actx.currentTime + 2.5);
-    bus = actx.createGain(); bus.gain.value = 1;
-    const delay = actx.createDelay(1); delay.delayTime.value = 0.34;
-    const fb = actx.createGain(); fb.gain.value = 0.33;
-    const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
-    bus.connect(master); bus.connect(delay); delay.connect(lp); lp.connect(fb); fb.connect(delay); lp.connect(master);
-    loopStart = actx.currentTime + 0.9; ei = 0;
-    if (actx.state === "suspended") actx.resume();
-    pumpTimer = setInterval(pump, 120);
-  } catch (e) { actx = null; }
+    song.volume = 0.85;
+    song.currentTime = 0;
+    const p = song.play();
+    playing = true;
+    if (p && p.catch) p.catch(() => { playing = false; });
+  } catch (e) { playing = false; }
 }
 function setMuted(m){
   muted = m;
   muteBtn.setAttribute("aria-pressed", String(m));
   muteBtn.setAttribute("aria-label", m ? "Play music" : "Mute music");
-  if (actx && master) { master.gain.cancelScheduledValues(actx.currentTime); master.gain.setTargetAtTime(m ? 0.0001 : 0.6, actx.currentTime, 0.12); }
+  song.muted = m;
+  if (!m && song.paused) { const p = song.play(); playing = true; if (p && p.catch) p.catch(() => {}); }
 }
-function chime(){
-  if (!actx || muted || actx.state !== "running") return;
-  const notes = [84, 86, 88, 91, 93, 96];
-  tine(mtof(notes[Math.random() * notes.length | 0]), actx.currentTime + 0.01, 0.4, 0.12);
-}
+function chime(){}
 document.addEventListener("visibilitychange", () => {
-  if (!actx) return;
-  if (document.hidden) actx.suspend();
-  else actx.resume().then(() => { const now = actx.currentTime; while (loopStart + LOOP * EIGHTH < now) loopStart += LOOP * EIGHTH; });
+  if (!playing) return;
+  if (document.hidden) song.pause();
+  else { const p = song.play(); if (p && p.catch) p.catch(() => {}); }
 });
 
 /* ---------- flow ---------- */
@@ -631,6 +593,7 @@ muteBtn.addEventListener("click", e => { e.stopPropagation(); setMuted(!muted); 
 replayBtn.addEventListener("click", e => {
   e.stopPropagation();
   T0 = performance.now() / 1000; revealed = -1; uiShown = false;
+  try { song.currentTime = 0; if (!muted) { const p = song.play(); playing = true; if (p && p.catch) p.catch(() => {}); } } catch (err) {}
   replayBtn.classList.remove("show"); hintEl.classList.remove("show");
 });
 cv.addEventListener("pointerdown", e => {
